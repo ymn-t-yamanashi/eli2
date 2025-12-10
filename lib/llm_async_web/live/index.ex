@@ -1,5 +1,6 @@
 defmodule LlmAsyncWeb.Index do
   use LlmAsyncWeb, :live_view
+  import ThreeWeb.Cg.CgHelper
 
   def mount(_params, _session, socket) do
     socket =
@@ -10,7 +11,12 @@ defmodule LlmAsyncWeb.Index do
       |> assign(sentences: [])
       |> assign(talking_no: 0)
       |> assign(task_pid: nil)
+      |> assign(data: initialization_character_data())
+      |> load_model("test", "images/test.vrm")
+      |> main()
 
+    Process.send_after(self(), :update, 250)
+    # Process.send_after(self(), :update, 500)
     {:ok, socket}
   end
 
@@ -60,6 +66,21 @@ defmodule LlmAsyncWeb.Index do
     {:noreply, socket}
   end
 
+  def handle_event("load_model", %{"name" => "test", "status" => "completion"}, socket) do
+    socket =
+      socket
+      |> position("test", 0, -1.4, 4.5)
+      |> position("test", 0, -1.4, 4.5)
+      |> rotation("test", 0, 3.1, 0)
+      |> rotation_bone("test", "J_Bip_R_UpperArm", -1.0, 1.2, 0.5)
+      |> rotation_bone("test", "J_Bip_L_UpperArm", -1.0, -1.2, -0.5)
+      |> set_blend_shape("test", "aa", 0.5)
+
+    # |> set_blend_shape("test", "blink", 1.0)
+
+    {:noreply, socket}
+  end
+
   def handle_info({:task_pid, pid}, socket) do
     {:noreply, assign(socket, task_pid: pid)}
   end
@@ -81,6 +102,11 @@ defmodule LlmAsyncWeb.Index do
 
   def handle_info(%{"done" => true}, socket) do
     {:noreply, assign(socket, btn: true)}
+  end
+
+  def handle_info(:update, socket) do
+    Process.send_after(self(), :update, 250)
+    {:noreply, main(socket)}
   end
 
   defp synthesize_and_play(text, socket) do
@@ -135,20 +161,40 @@ defmodule LlmAsyncWeb.Index do
     send(pid_liveview, %{"done" => true})
   end
 
+  defp initialization_character_data() do
+    0.5
+  end
+
+  defp main(socket) do
+    character_data = update_data(socket.assigns.data)
+
+    socket
+    |> set_blend_shape("test", "aa", character_data)
+    # |> set_blend_shape("test", "blink", character_data)
+    |> assign(data: character_data)
+  end
+
+  defp update_data(0.5), do: 0
+  defp update_data(0), do: 0.5
+  defp update_data(_), do: 0
+
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash}>
-      <div id="voicex" class="p-5" phx-hook="Voicex">
-        <form>
-          <textarea id="text_input" name="text" phx-change="update_text" class="input w-[400px]">{@input_text}</textarea>
-        </form>
+      <div class="flex h-screen">
+        <div id="voicex" class="p-5" phx-hook="Voicex">
+          <form>
+            <textarea id="text_input" name="text" phx-change="update_text" class="input w-[400px]">{@input_text}</textarea>
+          </form>
 
-        <button disabled={!@btn} class="btn" phx-click="start">実行</button>
-        <button class="btn btn-error" phx-click="stop">停止</button>
+          <button disabled={!@btn} class="btn" phx-click="start">実行</button>
+          <button class="btn btn-error" phx-click="stop">停止</button>
 
-        <div :for={s <- @sentences}>
-          {s}
+          <div :for={s <- @sentences}>
+            {s}
+          </div>
         </div>
+        <div id="threejs" phx-hook="threejs" phx-update="ignore" data-data={@data}></div>
       </div>
     </Layouts.app>
     """
