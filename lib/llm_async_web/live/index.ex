@@ -5,11 +5,12 @@ defmodule LlmAsyncWeb.Index do
   def mount(_params, _session, socket) do
     socket =
       assign(socket, text: "実行ボタンを押してください")
-      |> assign(input_text: "Elixirについて教えてください")
+      |> assign(input_text: "Elixirについて一言で教えてください")
       |> assign(btn: true)
       |> assign(old_sentence_count: 1)
       |> assign(sentences: [])
       |> assign(talking_no: 0)
+      |> assign(talking: false)
       |> assign(task_pid: nil)
       |> assign(data: initialization_character_data())
       |> load_model("test", "images/test.vrm")
@@ -46,6 +47,7 @@ defmodule LlmAsyncWeb.Index do
       |> assign(old_sentence_count: 1)
       |> assign(talking_no: 0)
       |> assign(task_pid: nil)
+      |> assign(talking: false)
       |> stop_voice_playback()
 
     {:noreply, socket}
@@ -105,7 +107,7 @@ defmodule LlmAsyncWeb.Index do
   end
 
   def handle_info(:update, socket) do
-    Process.send_after(self(), :update, 250)
+    Process.send_after(self(), :update, 150)
     {:noreply, main(socket)}
   end
 
@@ -124,6 +126,7 @@ defmodule LlmAsyncWeb.Index do
     sentences
     |> hd()
     |> synthesize_and_play(socket)
+    |> assign(talking: true)
   end
 
   defp speak_first(socket, _, _, _sentences), do: socket
@@ -131,11 +134,13 @@ defmodule LlmAsyncWeb.Index do
   defp speak_next(socket, talking_no, max_talking_no, text) when talking_no < max_talking_no do
     synthesize_and_play(text, socket)
     |> assign(talking_no: talking_no)
+    |> assign(talking: true)
   end
 
   defp speak_next(socket, _talking_no, _max_talking_no, _text) do
     assign(socket, talking_no: 0)
     |> assign(btn: true)
+    |> assign(talking: false)
   end
 
   defp run(pid_liveview, text) do
@@ -169,10 +174,16 @@ defmodule LlmAsyncWeb.Index do
     character_data = update_data(socket.assigns.data)
 
     socket
-    |> set_blend_shape("test", "aa", character_data)
+    |> mouth(socket.assigns.talking, character_data)
+    # |> set_blend_shape("test", "aa", character_data)
     # |> set_blend_shape("test", "blink", character_data)
     |> assign(data: character_data)
   end
+
+  defp mouth(socket, false, _character_data), do: set_blend_shape(socket, "test", "aa", 0)
+
+  defp mouth(socket, true, character_data),
+    do: set_blend_shape(socket, "test", "aa", character_data)
 
   defp update_data(0.5), do: 0
   defp update_data(0), do: 0.5
@@ -182,7 +193,7 @@ defmodule LlmAsyncWeb.Index do
     ~H"""
     <Layouts.app flash={@flash}>
       <div class="flex h-screen">
-        <div id="voicex" class="p-5" phx-hook="Voicex">
+        <div id="voicex" class="p-5 w-[800px] h-[800px] overflow-y-auto" phx-hook="Voicex">
           <form>
             <textarea id="text_input" name="text" phx-change="update_text" class="input w-[400px]">{@input_text}</textarea>
           </form>
