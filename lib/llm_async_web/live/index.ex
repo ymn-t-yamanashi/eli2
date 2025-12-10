@@ -49,6 +49,7 @@ defmodule LlmAsyncWeb.Index do
       |> assign(task_pid: nil)
       |> assign(talking: false)
       |> stop_voice_playback()
+      |> set_blend_shape("test", "aa", 0)
 
     {:noreply, socket}
   end
@@ -68,6 +69,11 @@ defmodule LlmAsyncWeb.Index do
     {:noreply, socket}
   end
 
+  def handle_event("voice_volume", %{"volume" => v}, socket) do
+    socket = set_blend_shape(socket, "test", "aa", v * 10)
+    {:noreply, socket}
+  end
+
   def handle_event("load_model", %{"name" => "test", "status" => "completion"}, socket) do
     socket =
       socket
@@ -76,7 +82,7 @@ defmodule LlmAsyncWeb.Index do
       |> rotation("test", 0, 3.1, 0)
       |> rotation_bone("test", "J_Bip_R_UpperArm", -1.0, 1.2, 0.5)
       |> rotation_bone("test", "J_Bip_L_UpperArm", -1.0, -1.2, -0.5)
-      |> set_blend_shape("test", "aa", 0.5)
+      |> set_blend_shape("test", "aa", 0)
 
     # |> set_blend_shape("test", "blink", 1.0)
 
@@ -174,16 +180,16 @@ defmodule LlmAsyncWeb.Index do
     character_data = update_data(socket.assigns.data)
 
     socket
-    |> mouth(socket.assigns.talking, character_data)
+    # |> mouth(socket.assigns.talking, character_data)
     # |> set_blend_shape("test", "aa", character_data)
     # |> set_blend_shape("test", "blink", character_data)
     |> assign(data: character_data)
   end
 
-  defp mouth(socket, false, _character_data), do: set_blend_shape(socket, "test", "aa", 0)
+  # defp mouth(socket, false, _character_data), do: set_blend_shape(socket, "test", "aa", 0)
 
-  defp mouth(socket, true, character_data),
-    do: set_blend_shape(socket, "test", "aa", character_data)
+  # defp mouth(socket, true, character_data),
+  #  do: set_blend_shape(socket, "test", "aa", character_data)
 
   defp update_data(0.5), do: 0
   defp update_data(0), do: 0.5
