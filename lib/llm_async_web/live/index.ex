@@ -3,9 +3,11 @@ defmodule LlmAsyncWeb.Index do
   import ThreeWeb.Cg.CgHelper
 
   def mount(_params, _session, socket) do
+    pid = self()
+
     socket =
       assign(socket, text: "実行ボタンを押してください")
-      |> assign(input_text: "Elixirについて一言で教えてください")
+      |> assign(input_text: "Elixirについ２文で教えてください")
       |> assign(btn: true)
       |> assign(old_sentence_count: 1)
       |> assign(sentences: [])
@@ -13,6 +15,7 @@ defmodule LlmAsyncWeb.Index do
       |> assign(talking: false)
       |> assign(task_pid: nil)
       |> assign(data: 0)
+      |> assign(pid: pid)
       |> load_model("test", "images/test.vrm")
 
     {:ok, socket}
@@ -76,13 +79,26 @@ defmodule LlmAsyncWeb.Index do
   def handle_event("load_model", %{"name" => "test", "status" => "completion"}, socket) do
     socket =
       socket
-      |> position("test", 0, -1.4, 4.5)
-      |> position("test", 0, -1.4, 4.5)
+      |> position("test", 0, -1.45, 4.63)
       |> rotation("test", 0, 3.1, 0)
       |> rotation_bone("test", "J_Bip_R_UpperArm", -1.0, 1.2, 0.5)
       |> rotation_bone("test", "J_Bip_L_UpperArm", -1.0, -1.2, -0.5)
       |> set_blend_shape("test", "aa", 0)
 
+    Task.start_link(fn -> blink(socket.assigns.pid) end)
+    Task.start_link(fn -> move(socket.assigns.pid, 1) end)
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:move, v}, socket) do
+    sin = :math.sin(v) * 0.02
+    socket = rotation(socket, "test", 0.01, 3.2, sin)
+    {:noreply, socket}
+  end
+
+  def handle_info({:blink, v}, socket) do
+    socket = set_blend_shape(socket, "test", "blink", v)
     {:noreply, socket}
   end
 
@@ -129,7 +145,7 @@ defmodule LlmAsyncWeb.Index do
 
   defp speak_first(socket, _, _, _sentences), do: socket
 
-  defp speak_next(socket, talking_no, max_talking_no, text) when talking_no < max_talking_no do
+  defp speak_next(socket, talking_no, max_talking_no, text) when talking_no <= max_talking_no do
     synthesize_and_play(text, socket)
     |> assign(talking_no: talking_no)
     |> assign(talking: true)
@@ -152,7 +168,7 @@ defmodule LlmAsyncWeb.Index do
 
     {:ok, stream} =
       Ollama.completion(client,
-        model: "gemma3:27b",
+        model: "gemma3:1b",
         prompt: text,
         stream: true
       )
@@ -166,6 +182,21 @@ defmodule LlmAsyncWeb.Index do
 
   defp voice_volume(true, volume), do: volume * 10
   defp voice_volume(false, _), do: 0
+
+  def move(pid, i) do
+    send(pid, {:move, i})
+    Process.sleep(5)
+    move(pid, i + 0.005)
+  end
+
+  def blink(pid) do
+    Process.sleep(100)
+    send(pid, {:blink, 1})
+    Process.sleep(100)
+    send(pid, {:blink, 0})
+    Process.sleep(3000)
+    blink(pid)
+  end
 
   def render(assigns) do
     ~H"""
