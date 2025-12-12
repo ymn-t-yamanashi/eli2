@@ -93,7 +93,9 @@ defmodule LlmAsyncWeb.Index do
 
   def handle_info({:move, v}, socket) do
     sin = :math.sin(v) * 0.1
-    socket = rotation(socket, "test", 0.01, 3.2, sin)
+    #socket = rotation(socket, "test", 0.01, 3.2, sin)
+    socket = rotation_bone(socket, "test", "J_Bip_C_Hips", 0, sin, 0)
+
     {:noreply, socket}
   end
 
