@@ -92,7 +92,7 @@ defmodule LlmAsyncWeb.Index do
   end
 
   def handle_info({:move, v}, socket) do
-    sin = :math.sin(v) * 0.02
+    sin = :math.sin(v) * 0.1
     socket = rotation(socket, "test", 0.01, 3.2, sin)
     {:noreply, socket}
   end
@@ -185,7 +185,7 @@ defmodule LlmAsyncWeb.Index do
 
   def move(pid, i) do
     send(pid, {:move, i})
-    Process.sleep(5)
+    Process.sleep(1)
     move(pid, i + 0.005)
   end
 
